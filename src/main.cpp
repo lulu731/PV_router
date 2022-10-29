@@ -31,7 +31,7 @@
 
 //--------------------------------------------------------------------------------------------------
 // other system constants
-#define SUPPLY_VOLTS 3.3 // used here because it's more accurate than the internal band-gap reference
+#define SUPPLY_VOLTS 5 //3.3  used here because it's more accurate than the internal band-gap reference
 #define SUPPLY_FREQUENCY 50
 #define NUMSAMPLES 50 // number of times to sample each 50Hz cycle
 #define ENERGY_BUFFER_SIZE 3600 // 0.001 kWh = 3600 Joules
@@ -64,34 +64,20 @@
 
 //--------------------------------------------------------------------------------------------------
 // Arduino I/O pin useage
-#define VOLTSPIN A0//2
-#define CT1PIN A1//3
-#define CT2PIN A2//0
+#define VOLTSPIN 0//2
+#define CT1PIN 1//3
+#define CT2PIN 2//0
 #define LEDPIN 9
 #define SYNCPIN 6 // this output will be a 50Hz square wave locked to the 50Hz input
 #define SAMPPIN 5 // this output goes high each time an ADC conversion starts or completes
-#define RFMSELPIN 10
-#define RFMIRQPIN 2
 #define SDOPIN 12
-#define W1PIN 4 // 1-Wire pin for temperature
 #define TRIACPIN 3 // triac driver pin
 //--------------------------------------------------------------------------------------------------
 
-//--------------------------------------------------------------------------------------------------
-// Dallas DS18B20 commands
-#define SKIP_ROM 0xcc
-#define CONVERT_TEMPERATURE 0x44
-#define READ_SCRATCHPAD 0xbe
-#define BAD_TEMPERATURE 30000 // this value (300C) is sent if no sensor is present
-//--------------------------------------------------------------------------------------------------
-
 #include <Arduino.h>
-#include <Wire.h>
-#include <SPI.h>
 #include <util/crc16.h>
-//#include <OneWire.h>
 
-typedef struct { int power1, power2, power3, Vrms/*, temp*/; } PayloadTx;
+typedef struct { int power1, power2, power3, Vrms; } PayloadTx;
 PayloadTx emontx;
 
 int sampleV,sampleI1,sampleI2,numSamples;
@@ -114,8 +100,6 @@ unsigned long nextTransmitTime;
 long availableEnergy;
 int manualPowerLevel;
 
-//OneWire oneWire(W1PIN);
-
 void setup()
 {
   pinMode(LEDPIN, OUTPUT);
@@ -126,37 +110,10 @@ void setup()
   digitalWrite(SAMPPIN, LOW);
   pinMode(TRIACPIN,OUTPUT);
   digitalWrite(TRIACPIN,LOW);
-  pinMode (RFMSELPIN, OUTPUT);
-  digitalWrite(RFMSELPIN,HIGH);
   manualPowerLevel=0;
-  //convertTemperature(); // start initial temperature conversion
-  // start the SPI library:
-  SPI.begin();
-  SPI.setBitOrder(MSBFIRST);
-  SPI.setDataMode(0);
-  SPI.setClockDivider(SPI_CLOCK_DIV8);
-  // initialise RFM12
-  /*delay(200); // wait for RFM12 POR
-  rfm_write(0x0000); // clear SPI
-  rfm_write(0x80D7); // EL (ena dreg), EF (ena RX FIFO), 12.0pF
-  rfm_write(0x8208); // Turn on crystal,!PA
-  rfm_write(0xA640); // 434MHz
-  rfm_write(0xC606); // approx 49.2 Kbps, as used by emonTx
-  //rfm_write(0xC657); // approx 3.918 Kbps, better for long range
-  rfm_write(0xCC77); // PLL
-  rfm_write(0x94A0); // VDI,FAST,134kHz,0dBm,-103dBm
-  rfm_write(0xC2AC); // AL,!ml,DIG,DQD4
-  rfm_write(0xCA83); // FIFO8,2-SYNC,!ff,DR
-  rfm_write(0xCEd2); // SYNC=2DD2
-  rfm_write(0xC483); // @PWR,NO RSTRIC,!st,!fi,OE,EN
-  rfm_write(0x9850); // !mp,90kHz,MAX OUT
-  rfm_write(0xE000); // wake up timer - not used
-  rfm_write(0xC800); // low duty cycle - not used
-  rfm_write(0xC000); // 1.0MHz,2.2V
-  */
+
   nextTransmitTime=millis();
   Serial.begin(9600);
-
   // change ADC prescaler to /64 = 250kHz clock
   // slightly out of spec of 200kHz but should be OK
   ADCSRA &= 0xf8;  // remove bits set by Arduino library
@@ -370,7 +327,14 @@ void calculateVIPF()
 
 void sendResults()
 {
-  //rfm_send((byte *)&emontx,sizeof(emontx));
+  Serial.print(emontx.power1);
+  Serial.print(" ");
+  Serial.print(emontx.power2);
+  Serial.print(" ");
+  Serial.print(emontx.power3);
+  Serial.print(" ");
+  Serial.print(emontx.Vrms);
+  Serial.print(" ");
   Serial.print(voltsOffset);
   Serial.print(" ");
   Serial.print(I1Offset);
@@ -387,91 +351,12 @@ void sendResults()
   Serial.print(" ");
   Serial.print(frequency);
   Serial.print(" ");
-  //Serial.print((float)emontx.temp/100);
   Serial.print(" ");
   Serial.print((float)availableEnergy * JOULES_PER_BUFFER_UNIT);
   if(pllUnlocked) Serial.print(" PLL is unlocked ");
   else Serial.print(" PLL is locked ");
   Serial.println();
 }
-
-// write a command to the RFM12
-word rfm_write(word cmd)
-{
-  word result;
-
-  digitalWrite(RFMSELPIN,LOW);
-  result=(SPI.transfer(cmd>>8)<<8) | SPI.transfer(cmd & 0xff);
-  digitalWrite(RFMSELPIN,HIGH);
-  return result;
-}
-
-// transmit data via the RFM12
-void rfm_send(byte *data, byte size)
-{
-  byte i=0,next,txstate=0;
-  word crc=~0;
-
-  rfm_write(0x8228); // OPEN PA
-  rfm_write(0x8238);
-
-  digitalWrite(RFMSELPIN,LOW);
-  SPI.transfer(0xb8); // tx register write command
-
-  while(txstate<13)
-  {
-    while(digitalRead(SDOPIN)==0); // wait for SDO to go high
-    switch(txstate)
-    {
-      case 0:
-      case 1:
-      case 2: next=0xaa; txstate++; break;
-      case 3: next=0x2d; txstate++; break;
-      case 4: next=0xd2; txstate++; break;
-      case 5: next=10; txstate++; break; // node ID
-      case 6: next=size; txstate++; break;
-      case 7: next=data[i++]; if(i==size) txstate++; break;
-      case 8: next=(byte)crc; txstate++; break;
-      case 9: next=(byte)(crc>>8); txstate++; break;
-      case 10:
-      case 11:
-      case 12: next=0xaa; txstate++; break; // dummy bytes (if <3 CRC gets corrupted sometimes)
-    }
-    if((txstate>4)&&(txstate<9)) crc = _crc16_update(crc, next);
-    SPI.transfer(next);
-  }
-  digitalWrite(RFMSELPIN,HIGH);
-
-  rfm_write( 0x8208 ); // CLOSE PA
-  rfm_write( 0x8200 ); // enter sleep
-}
-
-/*void convertTemperature()
-{
-  oneWire.reset();
-  oneWire.write(SKIP_ROM);
-  oneWire.write(CONVERT_TEMPERATURE);
-}*/
-
-/*int readTemperature()
-{
-  byte buf[9];
-  int result;
-
-  oneWire.reset();
-  oneWire.write(SKIP_ROM);
-  oneWire.write(READ_SCRATCHPAD);
-  for(int i=0; i<9; i++) buf[i]=oneWire.read();
-  if(oneWire.crc8(buf,8)==buf[8])
-  {
-    result=(buf[1]<<8)|buf[0];
-    // result is temperature x16, multiply by 6.25 to convert to temperature x100
-    result=(result*6)+(result>>2);
-  }
-  else result=BAD_TEMPERATURE;
-  return result;
-}*/
-
 
 void loop()
 {
@@ -483,9 +368,7 @@ void loop()
     digitalWrite(LEDPIN,HIGH);
 #endif
     calculateVIPF();
-    //emontx.temp=readTemperature();
     sendResults();
-    //convertTemperature(); // start next conversion
     nextTransmitTime+=LOOPTIME;
 #ifndef LEDISLOCK
     digitalWrite(LEDPIN,LOW);
