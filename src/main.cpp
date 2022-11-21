@@ -1,5 +1,4 @@
 
-
 /*  Energy monitor and solar power diverter for solar PV system
     based on emonTx hardware from OpenEnergyMonitor http://openenergymonitor.org/emon/
     this version implements a phase-locked loop to synchronise to the 50Hz supply and
@@ -17,52 +16,6 @@
 */
 
 //--------------------------------------------------------------------------------------------------
-// constants which must be set for each system
-#define VCAL 233.5  // calculated value is 230:9 for transformer x 11:1 for resistor divider = 281
-#define I1CAL 112.6 // calculated value is 100A:0.05A for transformer / 18 Ohms for resistor = 111.1
-#define I2CAL 94.8 // this is for CT2, the solar PV current transformer
-#define I1LEAD 5 // number of microseconds the CT1 input leads the voltage input by
-#define I2LEAD 5 // number of microseconds the CT2 input leads the voltage input by
-#define POWERCORRECTION 0 // this value, in watts, may be used to compensate for the leakage from
-                          //  voltage to current inputs, it only affects data sent to emonGLCD
-#define LOAD_POWER 2770 // power in watts (at 240V) of triac load for diverted power calculation
-//#define LEDISLOCK // comment this out for LED pulsed during transmission
-//--------------------------------------------------------------------------------------------------
-
-//--------------------------------------------------------------------------------------------------
-// other system constants
-#define SUPPLY_VOLTS 5 //3.3  used here because it's more accurate than the internal band-gap reference
-#define SUPPLY_FREQUENCY 50
-#define NUMSAMPLES 50 // number of times to sample each 50Hz cycle
-#define ENERGY_BUFFER_SIZE 3600 // 0.001 kWh = 3600 Joules
-#define BUFFER_HIGH_THRESHOLD 2700 // energy buffer level to start diversion
-#define BUFFER_LOW_THRESHOLD 900 // energy buffer level to stop diversion
-#define FILTERSHIFT 13 // for low pass filters to determine ADC offsets
-#define PLLTIMERRANGE 100 // PLL timer range limit ~+/-0.5Hz
-#define PLLLOCKRANGE 40 // allowable ADC range to enter locked state
-#define PLLUNLOCKRANGE 80 // allowable ADC range to remain locked
-#define PLLLOCKCOUNT 100 // number of cycles to determine if PLL is locked
-#define LOOPTIME 5000 // time of outer loop in milliseconds, also time between radio transmissions
-//--------------------------------------------------------------------------------------------------
-
-//--------------------------------------------------------------------------------------------------
-// constants calculated at compile time
-#define V_RATIO ((VCAL * SUPPLY_VOLTS)/1024)
-#define I1_RATIO ((I1CAL * SUPPLY_VOLTS)/1024)
-#define I2_RATIO ((I2CAL * SUPPLY_VOLTS)/1024)
-#define I1PHASESHIFT (((I1LEAD+63)*256)/400) // phase shift in voltage to align to current samples
-#define I2PHASESHIFT (((I2LEAD+127)*256)/400) //  these are fractions (x256) of sample period
-#define JOULES_PER_BUFFER_UNIT ((V_RATIO * I1_RATIO)/(SUPPLY_FREQUENCY*NUMSAMPLES))
-#define MAXAVAILABLEENERGY ((long)ENERGY_BUFFER_SIZE/JOULES_PER_BUFFER_UNIT)
-#define HIGHENERGYLEVEL ((long)BUFFER_HIGH_THRESHOLD/JOULES_PER_BUFFER_UNIT)
-#define LOWENERGYLEVEL ((long)BUFFER_LOW_THRESHOLD/JOULES_PER_BUFFER_UNIT)
-#define FILTERROUNDING (1<<(FILTERSHIFT-1))
-#define TIMERTOP (((20000/NUMSAMPLES)*16)-1) // terminal count for PLL timer
-#define PLLTIMERMAX (TIMERTOP+PLLTIMERRANGE)
-#define PLLTIMERMIN (TIMERTOP-PLLTIMERRANGE)
-//--------------------------------------------------------------------------------------------------
-
-//--------------------------------------------------------------------------------------------------
 // Arduino I/O pin useage
 #define VOLTSPIN 0//2
 #define CT1PIN 1//3
@@ -76,6 +29,52 @@
 
 #include <Arduino.h>
 #include <util/crc16.h>
+
+//--------------------------------------------------------------------------------------------------
+// constants which must be set for each system
+const float VCAL = 233.5;  // calculated value is 230:9 for transformer x 11:1 for resistor divider = 281
+const float I1CAL = 60.0; // calculated value is 60A gives 1V
+const float I2CAL = 60.0; // this is for CT2, the solar PV current transformer
+const int I1LEAD = 5; // number of microseconds the CT1 input leads the voltage input by
+const int I2LEAD = 5; // number of microseconds the CT2 input leads the voltage input by
+const int POWERCORRECTION = 0; // this value, in watts, may be used to compensate for the leakage from
+                   //  voltage to current inputs, it only affects data sent to emonGLCD
+const int LOAD_POWER = 2770; // power in watts (at 240V) of triac load for diverted power calculation
+//#define LEDISLOCK // comment this out for LED pulsed during transmission
+//--------------------------------------------------------------------------------------------------
+
+//--------------------------------------------------------------------------------------------------
+// other system constants
+const int SUPPLY_VOLTS = 5;
+const int SUPPLY_FREQUENCY = 50;
+const int NUMSAMPLES = 50;// number of times to sample each 50Hz cycle
+const int ENERGY_BUFFER_SIZE = 3600; // 0.001 kWh = 3600 Joules
+const int BUFFER_HIGH_THRESHOLD = 2700; // energy buffer level to start diversion
+const int BUFFER_LOW_THRESHOLD = 900; // energy buffer level to stop diversion
+const int FILTERSHIFT =13; // for low pass filters to determine ADC offsets
+const int PLLTIMERRANGE =100; // PLL timer range limit ~+/-0.5Hz
+const int PLLLOCKRANGE  = 40; // allowable ADC range to enter locked state
+const int PLLUNLOCKRANGE = 80; // allowable ADC range to remain locked
+const int PLLLOCKCOUNT = 100; // number of cycles to determine if PLL is locked
+const int LOOPTIME = 5000; // time of outer loop in milliseconds, also time between radio transmissions
+//--------------------------------------------------------------------------------------------------
+
+//--------------------------------------------------------------------------------------------------
+// constants calculated at compile time
+const float V_RATIO = (VCAL * SUPPLY_VOLTS)/1024;
+const float I1_RATIO = (I1CAL * SUPPLY_VOLTS)/1024;
+const float I2_RATIO = (I2CAL * SUPPLY_VOLTS)/1024;
+const int I1PHASESHIFT = (I1LEAD+63)*256/400; // phase shift in voltage to align to current samples
+const int I2PHASESHIFT = (I2LEAD+127)*256/400; //  these are fractions (x256) of sample period
+const float JOULES_PER_BUFFER_UNIT = V_RATIO * I1_RATIO/SUPPLY_FREQUENCY*NUMSAMPLES;
+const float MAXAVAILABLEENERGY = ENERGY_BUFFER_SIZE/JOULES_PER_BUFFER_UNIT;
+const float HIGHENERGYLEVEL = BUFFER_HIGH_THRESHOLD/JOULES_PER_BUFFER_UNIT;
+const float LOWENERGYLEVEL = BUFFER_LOW_THRESHOLD/JOULES_PER_BUFFER_UNIT;
+const int FILTERROUNDING = (1<<(FILTERSHIFT-1));
+const float TIMERTOP = (20000/NUMSAMPLES*16)-1; // terminal count for PLL timer
+const float PLLTIMERMAX = TIMERTOP+PLLTIMERRANGE;
+const float PLLTIMERMIN = TIMERTOP-PLLTIMERRANGE;
+//--------------------------------------------------------------------------------------------------
 
 typedef struct { int power1, power2, power3, Vrms; } PayloadTx;
 PayloadTx emontx;
