@@ -15,6 +15,8 @@
     10/12/12 high & low energy thresholds added to reduce flicker
 */
 
+#define DEBUG_HARD
+
 //--------------------------------------------------------------------------------------------------
 // Arduino I/O pin useage
 #define VOLTSPIN 0
@@ -311,12 +313,14 @@ void calculateVIPF()
 
 void sendResults()
 {
-  Serial.print(voltsOffset);
-  Serial.print(" ");
-  Serial.print(I1Offset);
-  Serial.print(" ");
-  Serial.print(I2Offset);
-  Serial.print(" ");
+  #ifdef DEBUG_HARD
+    Serial.print(voltsOffset);
+    Serial.print(" ");
+    Serial.print(I1Offset);
+    Serial.print(" ");
+    Serial.print(I2Offset);
+    Serial.print(" ");
+  #endif
   Serial.print(Vrms);
   Serial.print(" ");
   Serial.print(realPower1);
