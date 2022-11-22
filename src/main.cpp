@@ -17,13 +17,12 @@
 
 //--------------------------------------------------------------------------------------------------
 // Arduino I/O pin useage
-#define VOLTSPIN 0//2
-#define CT1PIN 1//3
-#define CT2PIN 2//0
+#define VOLTSPIN 0
+#define CT1PIN 1
+#define CT2PIN 2
 #define LEDPIN 9
 #define SYNCPIN 6 // this output will be a 50Hz square wave locked to the 50Hz input
 #define SAMPPIN 5 // this output goes high each time an ADC conversion starts or completes
-#define SDOPIN 12
 #define TRIACPIN 3 // triac driver pin
 //--------------------------------------------------------------------------------------------------
 
@@ -33,7 +32,9 @@
 //--------------------------------------------------------------------------------------------------
 // constants which must be set for each system
 const float VCAL = 233.5;  // calculated value is 230:9 for transformer x 11:1 for resistor divider = 281
-const float I1CAL = 60.0; // calculated value is 60A gives 1V
+//TODO : define VCAL with hardware
+
+const float I1CAL = 60.0; // calculated value is 60A, gives 1V
 const float I2CAL = 60.0; // this is for CT2, the solar PV current transformer
 const int I1LEAD = 5; // number of microseconds the CT1 input leads the voltage input by
 const int I2LEAD = 5; // number of microseconds the CT2 input leads the voltage input by
@@ -64,16 +65,16 @@ const int LOOPTIME = 5000; // time of outer loop in milliseconds, also time betw
 const float V_RATIO = (VCAL * SUPPLY_VOLTS)/1024;
 const float I1_RATIO = (I1CAL * SUPPLY_VOLTS)/1024;
 const float I2_RATIO = (I2CAL * SUPPLY_VOLTS)/1024;
-const int I1PHASESHIFT = (I1LEAD+63)*256/400; // phase shift in voltage to align to current samples
-const int I2PHASESHIFT = (I2LEAD+127)*256/400; //  these are fractions (x256) of sample period
+const float I1PHASESHIFT = (I1LEAD+63)*256/400; // phase shift in voltage to align to current samples
+const float I2PHASESHIFT = (I2LEAD+127)*256/400; //  these are fractions (x256) of sample period
 const float JOULES_PER_BUFFER_UNIT = V_RATIO * I1_RATIO/SUPPLY_FREQUENCY*NUMSAMPLES;
 const float MAXAVAILABLEENERGY = ENERGY_BUFFER_SIZE/JOULES_PER_BUFFER_UNIT;
 const float HIGHENERGYLEVEL = BUFFER_HIGH_THRESHOLD/JOULES_PER_BUFFER_UNIT;
 const float LOWENERGYLEVEL = BUFFER_LOW_THRESHOLD/JOULES_PER_BUFFER_UNIT;
-const int FILTERROUNDING = (1<<(FILTERSHIFT-1));
-const float TIMERTOP = (20000/NUMSAMPLES*16)-1; // terminal count for PLL timer
-const float PLLTIMERMAX = TIMERTOP+PLLTIMERRANGE;
-const float PLLTIMERMIN = TIMERTOP-PLLTIMERRANGE;
+const long FILTERROUNDING = (1<<(FILTERSHIFT-1));
+const int TIMERTOP = (20000/NUMSAMPLES*16)-1; // terminal count for PLL timer
+const int PLLTIMERMAX = TIMERTOP+PLLTIMERRANGE;
+const int PLLTIMERMIN = TIMERTOP-PLLTIMERRANGE;
 //--------------------------------------------------------------------------------------------------
 
 typedef struct { int power1, power2, power3, Vrms; } PayloadTx;
@@ -244,9 +245,9 @@ ISR(ADC_vect)
       fVoltsOffset += (sampleV-voltsOffset);
       voltsOffset=(int)((fVoltsOffset+FILTERROUNDING)>>FILTERSHIFT);
       // determine voltage at current sampling points and use it for power calculation
-      phaseShiftedV=lastV+((((long)newV-lastV)*I1PHASESHIFT)>>8);
+      phaseShiftedV=lastV+((long)((newV-lastV)*I1PHASESHIFT)>>8);
       sumP1+=(phaseShiftedV*newI1);
-      phaseShiftedV=lastV+((((long)newV-lastV)*I2PHASESHIFT)>>8);
+      phaseShiftedV=lastV+((long)((newV-lastV)*I2PHASESHIFT)>>8);
       sumP2+=(phaseShiftedV*newI2);
       break;
     case CT1PIN:
