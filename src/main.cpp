@@ -22,7 +22,6 @@
 #define CT2PIN 2
 #define LEDPIN 9
 #define SYNCPIN 6 // this output will be a 50Hz square wave locked to the 50Hz input
-#define SAMPPIN 5 // this output goes high each time an ADC conversion starts or completes
 #define TRIACPIN 3 // triac driver pin
 //--------------------------------------------------------------------------------------------------
 
@@ -106,8 +105,6 @@ void setup()
   digitalWrite(LEDPIN, HIGH);
   pinMode(SYNCPIN, OUTPUT);
   digitalWrite(SYNCPIN, LOW);
-  pinMode(SAMPPIN, OUTPUT);
-  digitalWrite(SAMPPIN, LOW);
   pinMode(TRIACPIN,OUTPUT);
   digitalWrite(TRIACPIN,LOW);
   manualPowerLevel=0;
@@ -205,17 +202,14 @@ void updatePLL(int newV, int lastV)
     }
     else digitalWrite(TRIACPIN,LOW);
   }
-  digitalWrite(SAMPPIN,LOW);
 }
 
 
 // timer 1 interrupt handler
 ISR(TIMER1_COMPA_vect)
 {
-  digitalWrite(SAMPPIN,HIGH);
   ADMUX = _BV(REFS0) | VOLTSPIN; // start ADC conversion for voltage
   ADCSRA |= _BV(ADSC);
-  digitalWrite(SAMPPIN,LOW);
 }
 
 // ADC interrupt handler
@@ -227,7 +221,6 @@ ISR(ADC_vect)
   int result;
   long phaseShiftedV;
 
-  digitalWrite(SAMPPIN,HIGH);
   result = ADCL;
   result |= ADCH<<8;
 
@@ -268,7 +261,6 @@ ISR(ADC_vect)
       updatePLL(newV,lastV);
       break;
   }
-  digitalWrite(SAMPPIN,LOW);
 }
 
 // add data for new 50Hz cycle to total
