@@ -76,9 +76,6 @@ const int PLLTIMERMAX = TIMERTOP+PLLTIMERRANGE;
 const int PLLTIMERMIN = TIMERTOP-PLLTIMERRANGE;
 //--------------------------------------------------------------------------------------------------
 
-typedef struct { int power1, power2, power3, Vrms; } PayloadTx;
-PayloadTx emontx;
-
 int sampleV,sampleI1,sampleI2,numSamples;
 int voltsOffset=512,I1Offset=512,I2Offset=512; // start offsets at ADC centre
 float Vrms,I1rms,I2rms;
@@ -301,11 +298,6 @@ void calculateVIPF()
   divertedPower=divertedPower*(Vrms/240)*(Vrms/240); // correct power for actual voltage
   frequency=((float)cycleCount*16000000)/(((float)sumTimerCount)*NUMSAMPLES);
 
-  emontx.power1=(int)(realPower1+0.5);
-  emontx.power2=(int)(realPower2+0.5);
-  emontx.power3=(int)(divertedPower+0.5);
-  emontx.Vrms=(int)(Vrms*100+0.5);
-
   totalVsquared=0;
   totalI1squared=0;
   totalI2squared=0;
@@ -319,14 +311,6 @@ void calculateVIPF()
 
 void sendResults()
 {
-  Serial.print(emontx.power1);
-  Serial.print(" ");
-  Serial.print(emontx.power2);
-  Serial.print(" ");
-  Serial.print(emontx.power3);
-  Serial.print(" ");
-  Serial.print(emontx.Vrms);
-  Serial.print(" ");
   Serial.print(voltsOffset);
   Serial.print(" ");
   Serial.print(I1Offset);
