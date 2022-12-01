@@ -32,8 +32,8 @@
 
 //--------------------------------------------------------------------------------------------------
 // constants which must be set for each system
-const float VCAL = 233.5;  // calculated value is 230:9 for transformer x 11:1 for resistor divider = 281
-//TODO : define VCAL with hardware
+const float VCAL = 217;  // calculated value is 230:9 for transformer x 11:1 for resistor divider = 281
+// with oscillo 230:1.06 (Vrms from resistor divider)
 
 const float I1CAL = 60.0; // calculated value is 60A, gives 1V
 const float I2CAL = 60.0; // this is for CT2, the solar PV current transformer
@@ -298,6 +298,7 @@ void calculateVIPF()
   powerFactor2=abs(realPower2 / apparentPower2);
   divertedPower=((float)divertedCycleCount*LOAD_POWER)/cycleCount;
   divertedPower=divertedPower*(Vrms/240)*(Vrms/240); // correct power for actual voltage
+  // TODO: correct 240??
   frequency=((float)cycleCount*16000000)/(((float)sumTimerCount)*NUMSAMPLES);
 
   totalVsquared=0;
@@ -322,6 +323,10 @@ void sendResults()
     Serial.print(" ");
   #endif
   Serial.print(Vrms);
+  Serial.print(" ");
+  Serial.print(I1rms);
+  Serial.print(" ");
+  Serial.print(I2rms);
   Serial.print(" ");
   Serial.print(realPower1);
   Serial.print(" ");
