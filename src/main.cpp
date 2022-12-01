@@ -1,18 +1,11 @@
 
 /*  Energy monitor and solar power diverter for solar PV system
     based on emonTx hardware from OpenEnergyMonitor http://openenergymonitor.org/emon/
-    this version implements a phase-locked loop to synchronise to the 50Hz supply and
-    supports a single Dallas DS18B20 temperature sensor.
+    this version implements a phase-locked loop to synchronise to the 50Hz supply.
 
-    The triac driver should be connected to the pulse jack via a suitable series resistor.
+    Based on Martin Roberts' work (02/12/12)
 
-    Author: Martin Roberts 2/12/12
-
-    History:
-    2/12/12  first published version
-    3/12/12  diverted power calculation & transmission added
-    4/12/12  manual power input added for testing
-    10/12/12 high & low energy thresholds added to reduce flicker
+    History: /
 */
 
 #define DEBUG_HARD
