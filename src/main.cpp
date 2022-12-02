@@ -40,7 +40,7 @@ const int LOAD_POWER = 2770; // power in watts (at 240V) of triac load for diver
 
 //--------------------------------------------------------------------------------------------------
 // other system constants
-const int SUPPLY_VOLTS = 5;
+const float SUPPLY_VOLTS = 4.8;
 const int SUPPLY_FREQUENCY = 50;
 const int NUMSAMPLES = 50;// number of times to sample each 50Hz cycle
 const int ENERGY_BUFFER_SIZE = 3600; // 0.001 kWh = 3600 Joules
