@@ -21,7 +21,7 @@
 //--------------------------------------------------------------------------------------------------
 
 #include <Arduino.h>
-#include <util/crc16.h>
+//#include <util/crc16.h>
 
 //--------------------------------------------------------------------------------------------------
 // constants which must be set for each system
@@ -32,8 +32,6 @@ const float I1CAL = 60.0; // calculated value is 60A, gives 1V
 const float I2CAL = 60.0; // this is for CT2, the solar PV current transformer
 const int I1LEAD = 5; // number of microseconds the CT1 input leads the voltage input by
 const int I2LEAD = 5; // number of microseconds the CT2 input leads the voltage input by
-const int POWERCORRECTION = 0; // this value, in watts, may be used to compensate for the leakage from
-                   //  voltage to current inputs, it only affects data sent to emonGLCD
 const int LOAD_POWER = 2770; // power in watts (at 240V) of triac load for diverted power calculation
 //#define LEDISLOCK // comment this out for LED pulsed during transmission
 //--------------------------------------------------------------------------------------------------
@@ -50,7 +48,7 @@ const int FILTERSHIFT =13; // for low pass filters to determine ADC offsets
 const int PLLTIMERRANGE =100; // PLL timer range limit ~+/-0.5Hz
 const int PLLLOCKRANGE  = 40; // allowable ADC range to enter locked state
 const int PLLUNLOCKRANGE = 80; // allowable ADC range to remain locked
-const int PLLLOCKCOUNT = 100; // number of cycles to determine if PLL is locked
+const word PLLLOCKCOUNT = 100; // number of cycles to determine if PLL is locked
 const int LOOPTIME = 5000; // time of outer loop in milliseconds, also time between radio transmissions
 //--------------------------------------------------------------------------------------------------
 
@@ -59,12 +57,12 @@ const int LOOPTIME = 5000; // time of outer loop in milliseconds, also time betw
 const float V_RATIO = (VCAL * SUPPLY_VOLTS)/1024;
 const float I1_RATIO = (I1CAL * SUPPLY_VOLTS)/1024;
 const float I2_RATIO = (I2CAL * SUPPLY_VOLTS)/1024;
-const float I1PHASESHIFT = (I1LEAD+63)*256/400; // phase shift in voltage to align to current samples
-const float I2PHASESHIFT = (I2LEAD+127)*256/400; //  these are fractions (x256) of sample period
-const float JOULES_PER_BUFFER_UNIT = V_RATIO * I1_RATIO/SUPPLY_FREQUENCY*NUMSAMPLES;
-const float MAXAVAILABLEENERGY = ENERGY_BUFFER_SIZE/JOULES_PER_BUFFER_UNIT;
-const float HIGHENERGYLEVEL = BUFFER_HIGH_THRESHOLD/JOULES_PER_BUFFER_UNIT;
-const float LOWENERGYLEVEL = BUFFER_LOW_THRESHOLD/JOULES_PER_BUFFER_UNIT;
+const long I1PHASESHIFT = (I1LEAD+63)*256/400; // phase shift in voltage to align to current samples
+const long I2PHASESHIFT = (I2LEAD+126)*256/400; //  these are fractions (x256) of sample period
+const float JOULES_PER_BUFFER_UNIT = (V_RATIO * I1_RATIO)/(SUPPLY_FREQUENCY*NUMSAMPLES);
+const long MAXAVAILABLEENERGY = (long)ENERGY_BUFFER_SIZE/JOULES_PER_BUFFER_UNIT;
+const long HIGHENERGYLEVEL = (long)BUFFER_HIGH_THRESHOLD/JOULES_PER_BUFFER_UNIT;
+const long LOWENERGYLEVEL = (long)BUFFER_LOW_THRESHOLD/JOULES_PER_BUFFER_UNIT;
 const long FILTERROUNDING = (1<<(FILTERSHIFT-1));
 const int TIMERTOP = (20000/NUMSAMPLES*16)-1; // terminal count for PLL timer
 const int PLLTIMERMAX = TIMERTOP+PLLTIMERRANGE;
@@ -230,9 +228,9 @@ ISR(ADC_vect)
       fVoltsOffset += (sampleV-voltsOffset);
       voltsOffset=(int)((fVoltsOffset+FILTERROUNDING)>>FILTERSHIFT);
       // determine voltage at current sampling points and use it for power calculation
-      phaseShiftedV=lastV+((long)((newV-lastV)*I1PHASESHIFT)>>8);
+      phaseShiftedV=lastV+((((long)newV-lastV)*I1PHASESHIFT)>>8);
       sumP1+=(phaseShiftedV*newI1);
-      phaseShiftedV=lastV+((long)((newV-lastV)*I2PHASESHIFT)>>8);
+      phaseShiftedV=lastV+((((long)newV-lastV)*I2PHASESHIFT)>>8);
       sumP2+=(phaseShiftedV*newI2);
       break;
     case CT1PIN:
@@ -275,20 +273,20 @@ void addCycle()
 // calculate voltage, current, power and frequency
 void calculateVIPF()
 {
-  if(numSamples==0) return; // just in case
+  if(numSamples==0) return; // just in case to prevent from dividing by 0
 
   Vrms = V_RATIO * sqrt(((float)totalVsquared)/numSamples);
   I1rms = I1_RATIO * sqrt(((float)totalI1squared)/numSamples);
   I2rms = I2_RATIO * sqrt(((float)totalI2squared)/numSamples);
 
   realPower1 = (V_RATIO * I1_RATIO * (float)totalP1)/numSamples;
-  if(abs(realPower1)>POWERCORRECTION) realPower1-=POWERCORRECTION;
   apparentPower1 = Vrms * I1rms;
   powerFactor1=abs(realPower1 / apparentPower1);
+
   realPower2 = (V_RATIO * I2_RATIO * (float)totalP2)/numSamples;
-  if(abs(realPower2)>POWERCORRECTION) realPower2-=POWERCORRECTION;
   apparentPower2 = Vrms * I2rms;
   powerFactor2=abs(realPower2 / apparentPower2);
+
   divertedPower=((float)divertedCycleCount*LOAD_POWER)/cycleCount;
   divertedPower=divertedPower*(Vrms/240)*(Vrms/240); // correct power for actual voltage
   // TODO: correct 240??
