@@ -21,7 +21,6 @@
 //--------------------------------------------------------------------------------------------------
 
 #include <Arduino.h>
-//#include <util/crc16.h>
 
 //--------------------------------------------------------------------------------------------------
 // constants which must be set for each system
@@ -305,14 +304,12 @@ void calculateVIPF()
 
 void sendResults()
 {
-  #ifdef DEBUG_HARD
-    Serial.print(voltsOffset);
-    Serial.print(" ");
-    Serial.print(I1Offset);
-    Serial.print(" ");
-    Serial.print(I2Offset);
-    Serial.print(" ");
-  #endif
+  Serial.print(voltsOffset);
+  Serial.print(" ");
+  Serial.print(I1Offset);
+  Serial.print(" ");
+  Serial.print(I2Offset);
+  Serial.print(" ");
   Serial.print(Vrms);
   Serial.print(" ");
   Serial.print(I1rms);
@@ -344,7 +341,11 @@ void loop()
     digitalWrite(LEDPIN,HIGH);
 #endif
     calculateVIPF();
+
+#ifdef DEBUG_HARD
     sendResults();
+#endif
+
     nextTransmitTime+=LOOPTIME;
 #ifndef LEDISLOCK
     digitalWrite(LEDPIN,LOW);
