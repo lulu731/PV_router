@@ -8,8 +8,6 @@
     History: /
 */
 
-#define DEBUG_HARD
-
 //--------------------------------------------------------------------------------------------------
 // Arduino I/O pin useage
 #define VOLTSPIN 0
@@ -21,7 +19,6 @@
 //--------------------------------------------------------------------------------------------------
 
 #include <Arduino.h>
-//#include <util/crc16.h>
 
 //--------------------------------------------------------------------------------------------------
 // constants which must be set for each system
@@ -100,7 +97,10 @@ void setup()
   manualPowerLevel=0;
 
   nextTransmitTime=millis();
-  Serial.begin(9600);
+  #ifdef DEBUG_HARD
+    Serial.begin(115200);
+  #endif
+  Serial3.begin(115200);
   // change ADC prescaler to /64 = 250kHz clock
   // slightly out of spec of 200kHz but should be OK
   ADCSRA &= 0xf8;  // remove bits set by Arduino library
@@ -305,14 +305,12 @@ void calculateVIPF()
 
 void sendResults()
 {
-  #ifdef DEBUG_HARD
-    Serial.print(voltsOffset);
-    Serial.print(" ");
-    Serial.print(I1Offset);
-    Serial.print(" ");
-    Serial.print(I2Offset);
-    Serial.print(" ");
-  #endif
+  Serial.print(voltsOffset);
+  Serial.print(" ");
+  Serial.print(I1Offset);
+  Serial.print(" ");
+  Serial.print(I2Offset);
+  Serial.print(" ");
   Serial.print(Vrms);
   Serial.print(" ");
   Serial.print(I1rms);
@@ -344,18 +342,24 @@ void loop()
     digitalWrite(LEDPIN,HIGH);
 #endif
     calculateVIPF();
+
+#ifdef DEBUG_HARD
     sendResults();
+#endif
+
     nextTransmitTime+=LOOPTIME;
 #ifndef LEDISLOCK
     digitalWrite(LEDPIN,LOW);
 #endif
   }
 
-  if(Serial.available())
+  if(Serial3.available())
   {
-    manualPowerLevel=Serial.parseInt();
+    manualPowerLevel=Serial3.parseInt();
     manualPowerLevel=constrain(manualPowerLevel,0,255);
-    Serial.print("manual power level set to ");
-    Serial.println(manualPowerLevel);
+    #ifdef DEBUG_HARD
+      Serial.print("manual power level set to ");
+      Serial.println(manualPowerLevel);
+    #endif
   }
 }
