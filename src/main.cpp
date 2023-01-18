@@ -29,7 +29,7 @@ const float I1CAL = 60.0; // calculated value is 60A, gives 1V
 const float I2CAL = 60.0; // this is for CT2, the solar PV current transformer
 const int I1LEAD = 5; // number of microseconds the CT1 input leads the voltage input by
 const int I2LEAD = 5; // number of microseconds the CT2 input leads the voltage input by
-const int LOAD_POWER = 2770; // power in watts (at 240V) of triac load for diverted power calculation
+const int LOAD_POWER = 3000; // power in watts (at 230V) of triac load for diverted power calculation
 //#define LEDISLOCK // comment this out for LED pulsed during transmission
 //--------------------------------------------------------------------------------------------------
 
@@ -288,8 +288,8 @@ void calculateVIPF()
   powerFactor2=abs(realPower2 / apparentPower2);
 
   divertedPower=((float)divertedCycleCount*LOAD_POWER)/cycleCount;
-  divertedPower=divertedPower*(Vrms/240)*(Vrms/240); // correct power for actual voltage
-  // TODO: correct 240??
+  divertedPower=divertedPower*(Vrms/230)*(Vrms/230); // correct power for actual voltage
+
   frequency=((float)cycleCount*16000000)/(((float)sumTimerCount)*NUMSAMPLES);
 
   totalVsquared=0;
@@ -332,6 +332,15 @@ void sendResults()
   Serial.println();
 }
 
+void SendDataToESP()
+{
+  Serial3.print("P in : ");
+  Serial3.print(realPower1);
+  Serial3.print(" --- ");
+  Serial3.print("Div P : ");
+  Serial3.println(divertedPower);
+}
+
 void loop()
 {
   if(newCycle) addCycle(); // a new mains cycle has been sampled
@@ -344,7 +353,9 @@ void loop()
     calculateVIPF();
 
 #ifdef DEBUG_HARD
-    sendResults();
+  sendResults();
+#else
+  SendDataToESP();
 #endif
 
     nextTransmitTime+=LOOPTIME;
