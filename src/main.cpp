@@ -19,6 +19,7 @@
 //--------------------------------------------------------------------------------------------------
 
 #include <Arduino.h>
+#include <ArduinoJson.h>
 
 //--------------------------------------------------------------------------------------------------
 // constants which must be set for each system
@@ -75,7 +76,7 @@ long totalVsquared,totalI1squared,totalI2squared,totalP1,totalP2;
 long sumTimerCount;
 float realPower1,apparentPower1,powerFactor1;
 float realPower2,apparentPower2,powerFactor2;
-float divertedPower;
+float divertedEnergy;
 float frequency;
 word timerCount=TIMERTOP;
 word pllUnlocked=PLLLOCKCOUNT;
@@ -287,8 +288,8 @@ void calculateVIPF()
   apparentPower2 = Vrms * I2rms;
   powerFactor2=abs(realPower2 / apparentPower2);
 
-  divertedPower=((float)divertedCycleCount*LOAD_POWER)/cycleCount;
-  divertedPower=divertedPower*(Vrms/230)*(Vrms/230); // correct power for actual voltage
+  divertedEnergy=((float)divertedCycleCount*LOAD_POWER)/NUMSAMPLES/3600; // diverted energy in cycleCount, in Wh
+  divertedEnergy=divertedEnergy*(Vrms/230)*(Vrms/230); // correct energy for actual voltage
 
   frequency=((float)cycleCount*16000000)/(((float)sumTimerCount)*NUMSAMPLES);
 
@@ -321,7 +322,7 @@ void sendResults()
   Serial.print(" ");
   Serial.print(realPower2);
   Serial.print(" ");
-  Serial.print(divertedPower);
+  Serial.print(divertedEnergy);
   Serial.print(" ");
   Serial.print(frequency);
   Serial.print(" ");
@@ -332,13 +333,13 @@ void sendResults()
   Serial.println();
 }
 
+StaticJsonDocument<512> doc;
 void SendDataToESP()
 {
-  Serial3.print("P in : ");
-  Serial3.print(realPower1);
-  Serial3.print(" --- ");
-  Serial3.print("Div P : ");
-  Serial3.println(divertedPower);
+  doc["realPower1"] = realPower1;
+  doc["realPower2"] = realPower2;
+  doc["divertedEnergy"] = divertedEnergy;
+  serializeJson(doc, Serial3);
 }
 
 void loop()
@@ -347,21 +348,22 @@ void loop()
 
   if((millis()>=nextTransmitTime) && ((millis()-nextTransmitTime)<0x80000000L)) // check for overflow
   {
-#ifndef LEDISLOCK
-    digitalWrite(LEDPIN,HIGH);
-#endif
+    #ifndef LEDISLOCK
+      digitalWrite(LEDPIN,HIGH);
+    #endif
+
     calculateVIPF();
 
-#ifdef DEBUG_HARD
-  sendResults();
-#else
-  SendDataToESP();
-#endif
+    #ifdef DEBUG_HARD
+      sendResults();
+    #else
+      SendDataToESP();
+    #endif
 
     nextTransmitTime+=LOOPTIME;
-#ifndef LEDISLOCK
-    digitalWrite(LEDPIN,LOW);
-#endif
+    #ifndef LEDISLOCK
+      digitalWrite(LEDPIN,LOW);
+    #endif
   }
 
   if(Serial3.available())
