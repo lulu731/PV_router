@@ -92,8 +92,7 @@ int manualPowerLevel;
 
 void setup()
 {
-  digitalWrite(RESETPIN, HIGH);
-  pinMode(RESETPIN, OUTPUT);
+  pinMode(WAKEUPPIN, INPUT);
 
   pinMode(LEDPIN, OUTPUT);
   digitalWrite(LEDPIN, HIGH);
@@ -350,8 +349,6 @@ void SendDataToESP()
 
 void WakeUp()
 {
-  detachInterrupt(digitalPinToInterrupt(WAKEUPPIN));
-  digitalWrite(RESETPIN, LOW);
 }
 
 void loop()
@@ -389,10 +386,11 @@ void loop()
         Serial.println("Going to sleep");
       #endif
       LowPower.powerDown(SLEEP_FOREVER, ADC_OFF, BOD_OFF);
+      detachInterrupt(digitalPinToInterrupt(WAKEUPPIN));
     }
-    else
+    else if (SerialValue == 0 || SerialValue == 1)
     {
-      manualPowerLevel=constrain(SerialValue,0,255);
+      manualPowerLevel = SerialValue;
       #ifdef DEBUG_HARD
         Serial.print("manual power level set to ");
         Serial.println(manualPowerLevel);
