@@ -20,7 +20,10 @@
 
 #include <Arduino.h>
 #include <ArduinoJson.h>
+#include "LowPower.h"
 
+const byte WAKEUPPIN = 18; // wakeup pin
+const byte RESETPIN = 12; // pin to command RESET pin : HIGh for working board, LOW to reset
 //--------------------------------------------------------------------------------------------------
 // constants which must be set for each system
 const float VCAL = 217;  // calculated value is 230:9 for transformer x 11:1 for resistor divider = 281
@@ -89,6 +92,8 @@ int manualPowerLevel;
 
 void setup()
 {
+  pinMode(WAKEUPPIN, INPUT);
+
   pinMode(LEDPIN, OUTPUT);
   digitalWrite(LEDPIN, HIGH);
   pinMode(SYNCPIN, OUTPUT);
@@ -342,6 +347,10 @@ void SendDataToESP()
   serializeJson(doc, Serial3);
 }
 
+void WakeUp()
+{
+}
+
 void loop()
 {
   if(newCycle) addCycle(); // a new mains cycle has been sampled
@@ -368,11 +377,24 @@ void loop()
 
   if(Serial3.available())
   {
-    manualPowerLevel=Serial3.parseInt();
-    manualPowerLevel=constrain(manualPowerLevel,0,255);
-    #ifdef DEBUG_HARD
-      Serial.print("manual power level set to ");
-      Serial.println(manualPowerLevel);
-    #endif
+    int SerialValue = Serial3.parseInt();
+    if (SerialValue == 9)
+    {
+      //go to sleep - interrupt set to wakeup pin
+      attachInterrupt(digitalPinToInterrupt(WAKEUPPIN), WakeUp, LOW);
+      #ifndef DEBUG_HARD
+        Serial.println("Going to sleep");
+      #endif
+      LowPower.powerDown(SLEEP_FOREVER, ADC_OFF, BOD_OFF);
+      detachInterrupt(digitalPinToInterrupt(WAKEUPPIN));
+    }
+    else if (SerialValue == 0 || SerialValue == 1)
+    {
+      manualPowerLevel = SerialValue;
+      #ifdef DEBUG_HARD
+        Serial.print("manual power level set to ");
+        Serial.println(manualPowerLevel);
+      #endif
+    }
   }
 }
